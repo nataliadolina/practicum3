@@ -34,16 +34,20 @@ class GameObjectArgs:
         self.size_x = self.count_size_x_in_pixels(size_cell_x)
         self.speed_x = self.count_speed_x_in_pixels_per_frame(speed_cell)
 
-    def count_center_row_in_pixels(self, num_center_cell_x):
+    @staticmethod
+    def count_center_row_in_pixels(num_center_cell_x):
         return num_center_cell_x * default_size_x
 
-    def count_center_col_in_pixels(self, num_center_cell_y):
+    @staticmethod
+    def count_center_col_in_pixels(num_center_cell_y):
         return num_center_cell_y * default_size_y
 
-    def count_size_x_in_pixels(self, size_cell_x):
+    @staticmethod
+    def count_size_x_in_pixels(size_cell_x):
         return size_cell_x * default_size_x
 
-    def count_speed_x_in_pixels_per_frame(self, speed_cell):
+    @staticmethod
+    def count_speed_x_in_pixels_per_frame(speed_cell):
         return default_size_x * speed_cell / fps
 
     def row(self):
@@ -79,6 +83,24 @@ class BaseSprite(pygame.sprite.Sprite):
     def remove_game_object(self):
         self.kill()
 
+    def update_position(self, row, col=None):
+        if not col:
+            col = self.col
+
+        elif col > screen_size_y:
+            col = screen_size_y
+        elif col < 0:
+            col = 0
+        if row > screen_size_x:
+            row = screen_size_x
+        elif row < 0:
+            row = 0
+
+        self.pos = row, col
+        self.row = row
+        self.col = col
+        self.rect = pygame.Rect(row, self.col, self.size_x, default_size_y)
+
 
 class SafeRow(BaseSprite):
     def __init__(self, screen, game_object_args: GameObjectArgs):
@@ -91,17 +113,40 @@ class Obstacle(BaseSprite):
         super().__init__(screen, game_object_args, LemonChiffon1)
         obstacles_group.add(self)
 
-    def update_position(self, row):
-        self.pos = row, self.col
-        self.row = row
-        self.rect = pygame.Rect(row, self.col, self.size_x, default_size_y)
-
     def update(self):
         row = self.row + self.speed_x
-        right_border_position_x = row + self.size_x
         if row > screen_size_x:
             row = 0
         self.update_position(row)
+
+
+class Player(BaseSprite):
+    def __init__(self, screen, game_object_args: GameObjectArgs):
+        super().__init__(screen, game_object_args, IndianRed)
+        player_group.add(self)
+        self.current_row = game_object_args.row
+        self.current_col = game_object_args.col
+        self.need_to_update = False
+
+    def delta_move(self, delta_cell_x, delta_cell_y):
+        self.current_row += GameObjectArgs.count_center_row_in_pixels(delta_cell_x)
+        self.current_col += GameObjectArgs.count_center_col_in_pixels(delta_cell_y)
+        self.need_to_update = True
+
+    def move(self, cell_x, cell_y):
+        self.current_row = GameObjectArgs.count_center_row_in_pixels(cell_x)
+        self.current_col = GameObjectArgs.count_center_col_in_pixels(cell_y)
+        self.need_to_update = True
+
+    def get_rect(self):
+        return self.rect
+
+    def update(self):
+        if self.need_to_update:
+            self.update_position(self.current_row, self.current_col)
+
+    def is_collided(self, rect):
+        self.rect.colliderect(rect)
 
 
 def generate_level(screen):
@@ -126,21 +171,53 @@ def update_groups(screen):
     obstacles_group.draw(screen)
     obstacles_group.update()
 
+    player_group.draw(screen)
+    player_group.update()
+
+
+def is_collided(player_rect):
+    for object in obstacles_group:
+        if object.rect.colliderect(player_rect):
+            return True
+
+    return False
+
 
 def launch():
     screen = pygame.display.set_mode(size)
     screen.fill((0, 0, 0))
 
     generate_level(screen)
+    player = Player(screen, GameObjectArgs(4, 9, 1))
+    player_rect = player.get_rect()
     clock = pygame.time.Clock()
 
     while True:
         screen.fill(0)
+        delta_row = 0
+        delta_col = 0
         for event in pygame.event.get():
-            if event.type == pygame.QUIT or event.type == pygame.KEYDOWN:
+            if event.type == pygame.QUIT:
                 quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    delta_col = -1
+
+                if event.key == pygame.K_s:
+                    delta_col = 1
+
+                if event.key == pygame.K_d:
+                    delta_row = 1
+
+                if event.key == pygame.K_a:
+                    delta_row = -1
+        if delta_col != 0 or delta_row != 0:
+            player.delta_move(delta_row, delta_col)
+        delta_row, delta_col = 0, 0
 
         update_groups(screen)
+        if is_collided(player):
+            player.move(4, 9)
         clock.tick(fps)
         pygame.display.flip()
 
