@@ -200,16 +200,16 @@ def launch():
             if event.type == pygame.QUIT:
                 quit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
+                if event.key == pygame.K_w or event.key == pygame.K_UP:
                     delta_col = -1
 
-                if event.key == pygame.K_s:
+                if event.key == pygame.K_s or event.key == pygame.K_DOWN:
                     delta_col = 1
 
-                if event.key == pygame.K_d:
+                if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
                     delta_row = 1
 
-                if event.key == pygame.K_a:
+                if event.key == pygame.K_a or event.key ==pygame.K_LEFT:
                     delta_row = -1
         if delta_col != 0 or delta_row != 0:
             player.delta_move(delta_row, delta_col)
